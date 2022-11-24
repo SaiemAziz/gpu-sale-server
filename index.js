@@ -127,6 +127,19 @@ async function run(){
             let result = await usersCollection.deleteOne(query)
             res.send({result})
         })
+        app.put('/all-sellers', verify, async (req, res) => {
+            let email = req.decoded.email;
+            let user = await usersCollection.findOne({email: email})
+            if(email !== req.query.email || user?.role !== 'admin')
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let id = req.query.id
+            let query = {_id : ObjectId(id)}
+            let updateDoc = {
+                $set : {verified : true}
+            }
+            let result = await usersCollection.updateOne(query, updateDoc, {upsert : true})
+            res.send({result})
+        })
 
         app.get('/all-buyers', verify, async (req, res) => {
             let email = req.decoded.email;
