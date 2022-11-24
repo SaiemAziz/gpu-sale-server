@@ -42,6 +42,31 @@ async function run(){
             res.json("Server is runnning perfectly")
         })
 
+        app.get('/role-check/:email', async (req, res)=>{
+            const checkEmail = req.params.email;
+            let user = await usersCollection.findOne({email : checkEmail});
+            res.send({role : user?.role})
+        })
+
+        app.get('/role-set', async (req, res)=>{
+            let roleTaken = req.query.role || 'buyer'
+            let emailTaken = req.query.email
+            let photoURLTaken = req.query.photoURL
+            let displayNameTaken = req.query.displayName
+            let user = await usersCollection.findOne({email: emailTaken})
+            if(!user)
+            {                
+                let result = await usersCollection.insertOne({
+                    email: emailTaken, 
+                    role: roleTaken,
+                    displayName : displayNameTaken,
+                    photoURL : photoURLTaken
+                })
+                return res.send({result})
+            }
+            res.send({message: "already exist"})
+        })
+
         
     }
     finally{
