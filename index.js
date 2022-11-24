@@ -67,6 +67,21 @@ async function run(){
             res.send({message: "already exist"})
         })
 
+        app.get('/jwt', async (req, res)=>{
+            const email = req.query.email;
+            const token = jwt.sign({email}, secret)
+            res.send({authToken : token})
+        })
+
+        // seller API
+        app.post('/add-a-product', verify, async (req, res)=>{
+            let product = req.body
+            let email = req.decoded.email
+            if(product.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let result = await productsCollection.insertOne(product);
+            res.send({result})
+        })
         
     }
     finally{
