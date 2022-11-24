@@ -82,6 +82,31 @@ async function run(){
             let result = await productsCollection.insertOne(product);
             res.send({result})
         })
+        app.get('/my-products', verify, async (req, res)=>{
+            let email = req.decoded.email
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            
+            let result = await productsCollection.find({}).toArray();
+            res.send({result})
+        })
+
+        app.put('/my-products', verify, async (req, res)=>{
+            let email = req.decoded.email
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+
+            let id = req.query.id;
+            let query = {_id : ObjectId(id)}
+            let updateDoc = {
+                $set : {
+                    advertise : true
+                }
+            }
+            let result = await productsCollection.updateOne(query, updateDoc);
+            res.send({result})
+        })
+
         
     }
     finally{
