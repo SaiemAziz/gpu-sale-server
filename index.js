@@ -107,6 +107,27 @@ async function run(){
             res.send({result})
         })
 
+        // admin API
+        app.get('/all-sellers', verify, async (req, res) => {
+            let email = req.decoded.email;
+            let user = await usersCollection.findOne({email: email})
+            if(email !== req.query.email || user?.role !== 'admin')
+            return res.status(403).send({message: "Forbidden Access"}) 
+
+            let result = await usersCollection.find({role : 'seller'}).toArray()
+            res.send({result})
+        })
+        app.delete('/all-sellers', verify, async (req, res) => {
+            let email = req.decoded.email;
+            let user = await usersCollection.findOne({email: email})
+            if(email !== req.query.email || user?.role !== 'admin')
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let id = req.query.id
+            let query = {_id : ObjectId(id)}
+            let result = await usersCollection.deleteOne(query)
+            res.send({result})
+        })
+
         
     }
     finally{
