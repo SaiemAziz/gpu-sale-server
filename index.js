@@ -73,6 +73,11 @@ async function run(){
             res.send({authToken : token})
         })
 
+        app.get('/advertise-products', async (req, res)=>{
+            let result = await productsCollection.find({advertise : true}).toArray()
+            res.send({result})
+        })
+
         // seller API
         app.post('/add-a-product', verify, async (req, res)=>{
             let product = req.body
