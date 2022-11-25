@@ -103,7 +103,6 @@ async function run(){
         app.post('/add-a-product', verify, async (req, res)=>{
             let product = req.body
             let email = req.decoded.email
-            console.log(product, email, product.sellerEmail)
             if(product.sellerEmail !== email)
             return res.status(403).send({message: "Forbidden Access"}) 
             let result = await productsCollection.insertOne(product);
@@ -197,7 +196,27 @@ async function run(){
             let result = await usersCollection.deleteOne(query)
             res.send({result})
         })
+        app.get('/reported-items', verify, async (req, res) => {
+            let email = req.decoded.email;
+            let user = await usersCollection.findOne({email: email})
+            if(email !== req.query.email || user?.role !== 'admin')
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let result = await productsCollection.find({reported: true}).toArray()
+            res.send({result})
+        })
 
+        app.delete('/reported-items', verify, async (req, res) => {
+            let email = req.decoded.email;
+            let user = await usersCollection.findOne({email: email})
+            if(email !== req.query.email || user?.role !== 'admin')
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let id = req.query.id
+            let query = {_id : ObjectId(id)}
+            let result = await productsCollection.deleteOne(query)
+            res.send({result})
+        })
+
+        
         // buyer API
         app.put('/report-a-item', verify, async (req, res)=>{
             let email = req.decoded.email;
@@ -214,6 +233,7 @@ async function run(){
             let result = await productsCollection.updateOne(query, updateDoc, {upsert : true})
             res.send({result})
         })
+
     }
     finally{
 
