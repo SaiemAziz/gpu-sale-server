@@ -49,6 +49,12 @@ async function run(){
             res.send({role : user?.role})
         })
 
+        app.get('/verified-check/:email', async (req, res)=>{
+            const checkEmail = req.params.email;
+            let user = await usersCollection.findOne({email : checkEmail});
+            res.send({verified : user?.verified})
+        })
+
         app.get('/role-set', async (req, res)=>{
             let roleTaken = req.query.role || 'buyer'
             let emailTaken = req.query.email
@@ -79,8 +85,15 @@ async function run(){
             res.send({result})
         })
 
-        app.get('/categories', async (req, res)=>{
+        app.get('/category', async (req, res)=>{
             let result = await categoriesCollection.find({}).toArray()
+            res.send({result})
+        })
+
+        app.get('/category/:title', async (req, res)=>{
+            let title = req.params.title
+            // let result = await productsCollection.find({category: title}).toArray()
+            let result = await productsCollection.find({}).toArray()
             res.send({result})
         })
 
@@ -90,7 +103,8 @@ async function run(){
         app.post('/add-a-product', verify, async (req, res)=>{
             let product = req.body
             let email = req.decoded.email
-            if(product.email !== email)
+            console.log(product, email, product.sellerEmail)
+            if(product.sellerEmail !== email)
             return res.status(403).send({message: "Forbidden Access"}) 
             let result = await productsCollection.insertOne(product);
             res.send({result})
@@ -100,7 +114,17 @@ async function run(){
             if(req.query.email !== email)
             return res.status(403).send({message: "Forbidden Access"}) 
             
-            let result = await productsCollection.find({}).toArray();
+            let result = await productsCollection.find({sellerEmail: email}).toArray();
+            res.send({result})
+        })
+
+        app.delete('/my-products', verify, async (req, res)=>{
+            let email = req.decoded.email
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let id = req.query.id;
+            let query = {_id : ObjectId(id)}
+            let result = await productsCollection.deleteOne(query);
             res.send({result})
         })
 
@@ -171,6 +195,23 @@ async function run(){
             let id = req.query.id
             let query = {_id : ObjectId(id)}
             let result = await usersCollection.deleteOne(query)
+            res.send({result})
+        })
+
+        // buyer API
+        app.put('/report-a-item', verify, async (req, res)=>{
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+
+            let id = req.query.id;
+            let query = {_id : ObjectId(id)}
+            let updateDoc = {
+                $set : {
+                    reported : true
+                }
+            }
+            let result = await productsCollection.updateOne(query, updateDoc, {upsert : true})
             res.send({result})
         })
     }
