@@ -93,8 +93,8 @@ async function run(){
 
         app.get('/category/:title', async (req, res)=>{
             let title = req.params.title
-            // let result = await productsCollection.find({category: title}).toArray()
-            let result = await productsCollection.find({}).toArray()
+            let result = await productsCollection.find({category: title}).toArray()
+            // let result = await productsCollection.find({}).toArray()
             res.send({result})
         })
 
@@ -109,6 +109,28 @@ async function run(){
             let result = await productsCollection.insertOne(product);
             res.send({result})
         })
+        app.get('/my-buyers', verify, async (req, res)=>{
+            let email = req.decoded.email
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+
+            let booked = await bookedCollection.find({sellerEmail: email}).toArray();
+            let allBuyers = await usersCollection.find({role : 'buyer'}).toArray();
+
+            let result = []
+            allBuyers.forEach(a => {
+                booked.forEach(b => {
+                    if(a.email === b.buyerEmail)
+                    {
+                        if(result.indexOf(a)>=0)
+                            return;
+                        result.push(a);
+                    }
+                })
+            })
+            res.send({result})
+        })
+
         app.get('/my-products', verify, async (req, res)=>{
             let email = req.decoded.email
             if(req.query.email !== email)
@@ -150,29 +172,42 @@ async function run(){
             let user = await usersCollection.findOne({email: email})
             if(email !== req.query.email || user?.role !== 'admin')
             return res.status(403).send({message: "Forbidden Access"}) 
+            let result =[]
+            let allSeller = await usersCollection.find({role : 'seller'}).toArray()
+            allSeller.forEach(a => {
+                if(!a.banned)
+                    result.push(a)
+            })
 
-            let result = await usersCollection.find({role : 'seller'}).toArray()
             res.send({result})
         })
-        app.delete('/all-sellers', verify, async (req, res) => {
-            let email = req.decoded.email;
-            let user = await usersCollection.findOne({email: email})
-            if(email !== req.query.email || user?.role !== 'admin')
-            return res.status(403).send({message: "Forbidden Access"}) 
-            let id = req.query.id
-            let query = {_id : ObjectId(id)}
-            let result = await usersCollection.deleteOne(query)
-            res.send({result})
-        })
+        // app.delete('/all-sellers', verify, async (req, res) => {
+        //     let email = req.decoded.email;
+        //     let user = await usersCollection.findOne({email: email})
+        //     if(email !== req.query.email || user?.role !== 'admin')
+        //     return res.status(403).send({message: "Forbidden Access"}) 
+        //     let id = req.query.id
+        //     let query = {_id : ObjectId(id)}
+        //     let result = await usersCollection.deleteOne(query)
+        //     res.send({result})
+        // })
         app.put('/all-sellers', verify, async (req, res) => {
             let email = req.decoded.email;
             let user = await usersCollection.findOne({email: email})
             if(email !== req.query.email || user?.role !== 'admin')
             return res.status(403).send({message: "Forbidden Access"}) 
             let id = req.query.id
+            let task = req.query.task
             let query = {_id : ObjectId(id)}
-            let updateDoc = {
-                $set : {verified : true}
+            let updateDoc ={} ;
+            if(task === 'verify'){
+                updateDoc = {
+                    $set : {verified : true}
+                }
+            } else if(task === 'ban'){
+                updateDoc = {
+                    $set : {banned : true}
+                }
             }
             let result = await usersCollection.updateOne(query, updateDoc, {upsert : true})
             res.send({result})
@@ -184,19 +219,31 @@ async function run(){
             if(email !== req.query.email || user?.role !== 'admin')
             return res.status(403).send({message: "Forbidden Access"}) 
 
-            let result = await usersCollection.find({role : 'buyer'}).toArray()
+            let result =[]
+            let allBuyer = await usersCollection.find({role : 'buyer'}).toArray()
+            allBuyer.forEach(a => {
+                if(!a.banned)
+                    result.push(a)
+            })
             res.send({result})
         })
-        app.delete('/all-buyers', verify, async (req, res) => {
+        app.put('/all-buyers', verify, async (req, res) => {
             let email = req.decoded.email;
             let user = await usersCollection.findOne({email: email})
             if(email !== req.query.email || user?.role !== 'admin')
             return res.status(403).send({message: "Forbidden Access"}) 
             let id = req.query.id
             let query = {_id : ObjectId(id)}
-            let result = await usersCollection.deleteOne(query)
+            let updateDoc = {
+                $set : {
+                    banned : true
+                }
+            }
+            let result = await usersCollection.updateOne(query, updateDoc, {upsert : true})
             res.send({result})
         })
+
+
         app.get('/reported-items', verify, async (req, res) => {
             let email = req.decoded.email;
             let user = await usersCollection.findOne({email: email})
