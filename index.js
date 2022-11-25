@@ -37,6 +37,7 @@ async function run(){
         const usersCollection = await client.db("dpSale").collection("users")
         const productsCollection = await client.db("dpSale").collection("products")
         const categoriesCollection = await client.db("dpSale").collection("categories")
+        const bookedCollection = await client.db("dpSale").collection("booked")
         
 
         app.get('/', (req, res)=>{
@@ -231,6 +232,50 @@ async function run(){
                 }
             }
             let result = await productsCollection.updateOne(query, updateDoc, {upsert : true})
+            res.send({result})
+        })
+
+        app.post('/book-a-item', verify, async (req, res)=>{
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let product = req.body;
+            let already = await bookedCollection.findOne({product_ID : product.product_ID, buyerEmail : product.buyerEmail})
+            
+            let result = {
+                acknowledged : true
+            };
+            if(!already)
+                result = await bookedCollection.insertOne(product)
+            res.send({result})
+        })
+        app.get('/my-booked-items', verify, async (req, res)=>{
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            let bookedProducts = await bookedCollection.find({buyerEmail : email}).toArray()
+            let allProducts = await productsCollection.find({}).toArray()
+            let products = []
+            bookedProducts.forEach( b => {
+                allProducts.forEach( a => {
+                    let id = (a._id.toString())
+                    if(b.product_ID === id)
+                        products.push(a)
+                })
+            })
+            res.send({products})
+        })
+        app.delete('/my-booked-items', verify, async (req, res)=>{
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"}) 
+            
+            let query = { 
+                buyerEmail : email,
+                product_ID : req.query.id
+            }
+            let result = await bookedCollection.deleteOne(query)
+            
             res.send({result})
         })
 
