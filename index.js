@@ -47,7 +47,12 @@ async function run(){
         app.get('/role-check/:email', async (req, res)=>{
             const checkEmail = req.params.email;
             let user = await usersCollection.findOne({email : checkEmail});
-            res.send({role : user?.role})
+            let result = {
+                role : user?.role,
+                banned : user?.banned
+            }
+
+            res.send(result)
         })
 
         app.get('/verified-check/:email', async (req, res)=>{
@@ -289,6 +294,14 @@ async function run(){
             let product = req.body;
             let already = await bookedCollection.findOne({product_ID : product.product_ID, buyerEmail : product.buyerEmail})
             
+            let updateDoc = {
+                $set : {
+                    advertise : false,
+                    status : 'booked'
+                }
+            }
+            await productsCollection.updateOne({_id : ObjectId(product.product_ID)}, updateDoc, {upsert : true});
+
             let result = {
                 acknowledged : true
             };
@@ -321,6 +334,13 @@ async function run(){
                 buyerEmail : email,
                 product_ID : req.query.id
             }
+            let updateDoc = {
+                $set : {
+                    status : 'available'
+                }
+            }
+            await productsCollection.updateOne({_id : ObjectId(req.query.id)}, updateDoc, {upsert : true});
+
             let result = await bookedCollection.deleteOne(query)
             
             res.send({result})
