@@ -36,6 +36,7 @@ async function run(){
     try{
         const usersCollection = await client.db("dpSale").collection("users")
         const productsCollection = await client.db("dpSale").collection("products")
+        const categoriesCollection = await client.db("dpSale").collection("categories")
         
 
         app.get('/', (req, res)=>{
@@ -77,6 +78,13 @@ async function run(){
             let result = await productsCollection.find({advertise : true}).toArray()
             res.send({result})
         })
+
+        app.get('/categories', async (req, res)=>{
+            let result = await categoriesCollection.find({}).toArray()
+            res.send({result})
+        })
+
+
 
         // seller API
         app.post('/add-a-product', verify, async (req, res)=>{
