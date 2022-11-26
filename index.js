@@ -87,7 +87,12 @@ async function run(){
         })
 
         app.get('/advertise-products', async (req, res)=>{
-            let result = await productsCollection.find({advertise : true}).toArray()
+            let products = await productsCollection.find({advertise : true}).toArray()
+            let result = []
+            products.forEach(p => {
+                if(p.status !== 'sold')
+                    result.push(p)
+            })
             res.send({result})
         })
 
@@ -98,7 +103,12 @@ async function run(){
 
         app.get('/category/:title', async (req, res)=>{
             let title = req.params.title
-            let result = await productsCollection.find({category: title}).toArray()
+            let products = await productsCollection.find({category: title}).toArray()
+            let result = []
+            products.forEach(p => {
+                if(p.status !== 'sold')
+                    result.push(p)
+            })
             // let result = await productsCollection.find({}).toArray()
             res.send({result})
         })
@@ -109,8 +119,10 @@ async function run(){
         app.post('/add-a-product', verify, async (req, res)=>{
             let product = req.body
             let email = req.decoded.email
-            if(product.sellerEmail !== email)
-            return res.status(403).send({message: "Forbidden Access"}) 
+            let user = await usersCollection.findOne({email: email})
+            if(product.sellerEmail !== email || user.role !== 'seller')
+                return res.status(403).send({message: "Forbidden Access"}) 
+             
             let result = await productsCollection.insertOne(product);
             res.send({result})
         })
@@ -296,14 +308,14 @@ async function run(){
             
             let updateDoc = {
                 $set : {
-                    advertise : false,
                     status : 'booked'
                 }
             }
             await productsCollection.updateOne({_id : ObjectId(product.product_ID)}, updateDoc, {upsert : true});
 
             let result = {
-                acknowledged : true
+                acknowledged : true,
+                previous : true
             };
             if(!already)
                 result = await bookedCollection.insertOne(product)
