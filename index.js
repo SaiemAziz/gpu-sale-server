@@ -1,5 +1,6 @@
 require("dotenv").config()
 const express = require('express');
+const stripe = require("stripe")(process.env.STRIPE_SECRET)
 const cors = require('cors')
 const app = express()
 const jwt = require('jsonwebtoken')
@@ -38,6 +39,7 @@ async function run(){
         const productsCollection = await client.db("dpSale").collection("products")
         const categoriesCollection = await client.db("dpSale").collection("categories")
         const bookedCollection = await client.db("dpSale").collection("booked")
+        const paidCollection = await client.db("dpSale").collection("paid")
         
 
         app.get('/', (req, res)=>{
@@ -85,6 +87,7 @@ async function run(){
             const token = jwt.sign({email}, secret)
             res.send({authToken : token})
         })
+       
 
         app.get('/advertise-products', async (req, res)=>{
             let products = await productsCollection.find({advertise : true}).toArray()
@@ -287,15 +290,23 @@ async function run(){
             let email = req.decoded.email;
             if(req.query.email !== email)
             return res.status(403).send({message: "Forbidden Access"}) 
-
+            let user = await usersCollection.findOne({email : email})
             let id = req.query.id;
             let query = {_id : ObjectId(id)}
-            let updateDoc = {
-                $set : {
-                    reported : true
+            let result = {}
+            if(user.role === 'buyer'){
+                let updateDoc = {
+                    $set : {
+                        reported : true
+                    }
+                }
+                result = await productsCollection.updateOne(query, updateDoc, {upsert : true})
+            }
+            else{
+                result = {
+                    acknowledged : false
                 }
             }
-            let result = await productsCollection.updateOne(query, updateDoc, {upsert : true})
             res.send({result})
         })
 
@@ -337,6 +348,17 @@ async function run(){
             })
             res.send({products})
         })
+
+        app.get('/single-product', verify, async (req, res)=>{
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"})
+            let id = req.query.id
+            let booked = await bookedCollection.findOne({product_ID : id, buyerEmail : email})
+            let product = await productsCollection.findOne({_id : ObjectId(id)})
+            product = {product, booked}
+            res.send({product})
+        })
         app.delete('/my-booked-items', verify, async (req, res)=>{
             let email = req.decoded.email;
             if(req.query.email !== email)
@@ -358,6 +380,44 @@ async function run(){
             res.send({result})
         })
 
+        app.post('/create-payment-intent', verify, async(req, res)=> {
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"})
+            let price = parseInt(req.body.price) * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: price,
+                currency: "usd",
+                "payment_method_types": [
+                    "card"
+                  ],
+              });
+            res.send(paymentIntent)
+        })
+        app.post('/payment-complete', verify, async(req, res)=> {
+            let email = req.decoded.email;
+            if(req.query.email !== email)
+            return res.status(403).send({message: "Forbidden Access"})
+
+            let paymentIntent = req.body.paymentIntent
+            let product_ID = req.body.product_ID
+            let result = await paidCollection.insertOne({paymentIntent : paymentIntent, product_ID : product_ID, buyerEmail : email})
+            let updateDoc1 = {
+                $set : {
+                    status : 'sold',
+                }
+            }
+            let updateDoc2 = {
+                $set : {
+                    paid : true
+                }
+            }
+            
+            let result2 = await productsCollection.updateOne({_id: ObjectId(product_ID)}, updateDoc1, { upsert : true } )
+            let result3 = await bookedCollection.updateOne({product_ID: product_ID,buyerEmail : email}, updateDoc2, { upsert : true } )
+            let result4 = await bookedCollection.deleteMany({product_ID: product_ID, paid : false})
+            res.send({result, result2, result3, result4})
+        })
     }
     finally{
 
